@@ -7,6 +7,10 @@
 
     <appender name="FILE" class="ch.qos.logback.core.FileAppender">
         <file>gabriel.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>web/logs/gabriel-log-%d{yyyy-MM-dd}.gz</fileNamePattern>
+            <maxHistory>3</maxHistory>
+        </rollingPolicy>
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level [%X{gradingJID:--}] [%X{workerPhase:--}] [%X{gradingPhase:--}] - %msg%n</pattern>
         </encoder>
