@@ -218,8 +218,7 @@ public final class GabrielWorker implements Runnable {
             try {
                 sandalphonProgrammingProblemInfo = sandalphonClientAPI.getProgrammingProblemInfo(problemJid);
             } catch (JudgelsAPIClientException e) {
-                System.out.println(e.toString());
-                System.out.println(e.getClass());
+                GabrielLogger.getLogger().error(e.getMessage());
                 throw new InitializationException("Cannot fetch problem info");
             }
 
@@ -249,6 +248,7 @@ public final class GabrielWorker implements Runnable {
             try {
                 gradingFiles = sandalphonClientAPI.downloadProgrammingProblemGradingFiles(problemJid);
             } catch (JudgelsAPIClientException e) {
+                GabrielLogger.getLogger().error(e.getMessage());
                 throw new InitializationException("Cannot fetch problem grading files");
             }
 
