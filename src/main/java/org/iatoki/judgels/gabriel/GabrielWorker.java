@@ -3,6 +3,7 @@ package org.iatoki.judgels.gabriel;
 import com.google.common.collect.ImmutableMap;
 import com.google.gson.Gson;
 import org.apache.commons.io.FileUtils;
+import org.iatoki.judgels.LRUCache;
 import org.iatoki.judgels.api.JudgelsAPIClientException;
 import org.iatoki.judgels.api.sandalphon.SandalphonClientAPI;
 import org.iatoki.judgels.api.sandalphon.SandalphonProgrammingProblemInfo;
@@ -19,11 +20,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 public final class GabrielWorker implements Runnable {
+
+    private static final int MAX_PROBLEM_LOCKS = 10;
+    private static final LRUCache<String, ReadWriteLock> PROBLEM_LOCKS = new LRUCache<>(MAX_PROBLEM_LOCKS);
 
     private final String senderChannel;
     private final GradingRequest request;
@@ -192,6 +198,12 @@ public final class GabrielWorker implements Runnable {
     private boolean mustFetchProblemGradingFiles(String problemJid, File problemGradingDir) throws InitializationException, IOException {
         GabrielUtils.getGradingFetchCheckLock().lock();
 
+        ReadWriteLock readWriteLock = null;
+        if (PROBLEM_LOCKS.contains(problemJid)) {
+            readWriteLock = PROBLEM_LOCKS.get(problemJid);
+            readWriteLock.readLock().lock();
+        }
+
         try {
             if (!problemGradingDir.exists()) {
                 GabrielLogger.getLogger().info("Problem grading files cache not found. Must fetch grading files.");
@@ -232,11 +244,21 @@ public final class GabrielWorker implements Runnable {
 
         } finally {
             GabrielUtils.getGradingFetchCheckLock().unlock();
+            if (readWriteLock != null) {
+                readWriteLock.readLock().unlock();
+            }
         }
     }
 
     private void fetchProblemGradingFiles(String problemJid, File problemGradingDir) throws InitializationException, IOException  {
         GabrielUtils.getGradingWriteLock().lock();
+
+        ReadWriteLock readWriteLock;
+        if (!PROBLEM_LOCKS.contains(problemJid)) {
+            PROBLEM_LOCKS.put(problemJid, new ReentrantReadWriteLock());
+        }
+        readWriteLock = PROBLEM_LOCKS.get(problemJid);
+        readWriteLock.writeLock().lock();
 
         try {
             GabrielLogger.getLogger().info("Fetching test data files from Sandalphon started.");
@@ -280,6 +302,7 @@ public final class GabrielWorker implements Runnable {
             GabrielLogger.getLogger().info("Fetching test data files from Sandalphon finished.");
 
         } finally {
+            readWriteLock.writeLock().unlock();
             GabrielUtils.getGradingWriteLock().unlock();
         }
     }
